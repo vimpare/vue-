@@ -1,0 +1,174 @@
+**实现步骤**
+​	1.vue中最简单表达式使用
+
+​	2.我们如何实现渲染表达式里的数据
+
+​	3.修改数据后如何更新视图
+
+​	4.如何劫持数据监听数据改变
+
+​	5.通过发布订阅模式通知数据更新
+
+​	6.多层数据如何渲染
+
+​	7.v-model的初次渲染
+
+​	8.精简代码实现双绑
+
+index.html
+```
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <script src="kvue.js" type="text/javascript"></script>
+    <title>Document</title>
+</head>
+
+<body>
+    <div id="app">
+        {{ message }}
+        <p>{{message}}</p>
+        <input type="text" k-model="name" /> {{name}}
+    </div>
+</body>
+<script>
+let vm = new Kvue({
+    el:"#app",
+    data:{
+        message:"测试数据",
+        name:"张三",
+    }
+})
+vm._data.message = "测试数据";
+vm._data.name = "李四";
+// vm.message
+// vm.options
+console.log(vm._data);
+
+</script>
+
+</html>
+```
+Kvue.js
+```
+class Kvue {
+    constructor(options) {
+        this.$options = options;
+        this._data = options.data;
+        //劫持数据；
+        this.observer(this._data);
+        this.compile(options.el);
+    }
+    observer(data) {
+        Object.keys(data).forEach(key => {
+            let value = data[key];
+            let dep = new Dep();
+            Object.defineProperty(data, key, {
+                configurable: true,
+                enumerable: true,
+                get() {
+                    if (Dep.target) {
+                        dep.addSub(Dep.target);
+                    }
+                    return value;
+                },
+                set(newValue) {
+                    console.log("set", newValue);
+                    if (newValue !== value)
+                        value = newValue;
+                    dep.notify(newValue);
+                }
+            })
+        })
+
+    }
+    compile(el) {
+        let element = document.querySelector(el);
+        this.compileNode(element);
+    }
+    compileNode(element) {
+        let childNodes = element.childNodes;
+        // console.log(childNodes);
+        Array.from(childNodes).forEach(node => {
+            if (node.nodeType == 3) {
+                //文本
+                // console.log(node);
+                let nodeContent = node.textContent;
+                // console.log(nodeContent);
+                let reg = /\{\{\s*(\S*)\s*\}\}/;
+                if (reg.test(nodeContent)) {
+                    // console.log("("+RegExp.$1+")");
+                    node.textContent = this._data[RegExp.$1];
+                    new Watcher(this, RegExp.$1, newValue => {
+                        node.textContent = newValue;
+                    });
+                }
+            } else if (node.nodeType == 1) {
+                //标签
+                let attrs = node.attributes;
+                // console.log(attrs);
+                Array.from(attrs).forEach(attr => {
+                    // console.log(attr);
+                    let attrName = attr.name;
+                    let attrValue = attr.value;
+                    // console.log(attrName);
+                    if (attrName.indexOf("k-") == 0) {
+                        attrName = attrName.substr(2);
+                        console.log(attrName);
+                        if (attrName == "model") {
+                            node.value = this._data[attrValue];
+                        }
+                        node.addEventListener("input", e => {
+                            // console.log(e.target.value);
+                            this._data[attrValue] = e.target.value;
+                        })
+                        new Watcher(this, attrValue, newValue => {
+                            node.value = newValue;
+                        });
+                    }
+                })
+            }
+            if (node.childNodes.length > 0) {
+                this.compileNode(node);
+            }
+        })
+    }
+}
+
+
+
+class Dep {
+    constructor() {
+        this.subs = [];
+    }
+    addSub(sub) {
+        this.subs.push(sub);
+    }
+    notify(newValue) {
+        this.subs.forEach(v => {
+            v.update(newValue);
+        })
+    }
+}
+
+class Watcher {
+    constructor(vm, exp, cb) {
+        Dep.target = this;
+        vm._data[exp];
+        this.cb = cb;
+        Dep.target = null
+    }
+    update(newValue) {
+        console.log("更新了", newValue);
+        this.cb(newValue);
+    }
+}
+```
+**constructor**
+**`constructor `**是一种用于创建和初始化`[class]`创建的对象的特殊方法。
+在一个类中只能有一个名为 “constructor” 的特殊方法。
+ 一个类中出现多次构造函数 (`constructor)`方法将会抛出一个 [`SyntaxError`]对象代表尝试解析语法上不合法的代码的错误。
