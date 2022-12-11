@@ -13,7 +13,7 @@
   "author": "yuer",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.17.1",
+    "express": "^4.17.3",
     "@babel/core": "^7.7.7",
     "@babel/plugin-syntax-dynamic-import": "^7.7.4",
     "babel-loader": "^8.0.6",
